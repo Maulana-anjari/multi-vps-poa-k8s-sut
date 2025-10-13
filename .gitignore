@@ -1,0 +1,28 @@
+# Global environment overrides
+*.env
+!*.env.example
+
+# Multi-VPS PoA Kubernetes artifacts (generated or sensitive)
+global.env
+config/ips.env
+!config/ips.env.example
+
+artifacts/**/*
+!artifacts/**/
+!artifacts/**/.gitkeep
+
+config/addresses/*
+!config/addresses/.gitkeep
+
+config/passwords/*
+!config/passwords/.gitkeep
+
+# Node-specific runtime configuration
+signer/*/node.env
+nonsigner/*/node.env
+
+# Rendered manifests & secrets
+manifests/dist/**/*
+!manifests/dist/**/
+!manifests/dist/**/.gitkeep
+manifests/shared/secrets.generated.yaml

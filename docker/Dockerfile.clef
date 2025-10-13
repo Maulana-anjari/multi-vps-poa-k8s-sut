@@ -1,0 +1,10 @@
+# Custom Clef image using official Geth alltools as base.
+ARG CLEF_BASE_IMAGE=ethereum/client-go:alltools-v1.13.15
+FROM ${CLEF_BASE_IMAGE}
+
+RUN apk update && apk add --no-cache expect
+
+COPY scripts/start-clef.sh /usr/local/bin/start-clef.sh
+RUN chmod +x /usr/local/bin/start-clef.sh
+
+ENTRYPOINT ["/usr/local/bin/start-clef.sh"]
