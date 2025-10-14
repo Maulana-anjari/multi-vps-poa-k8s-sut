@@ -13,7 +13,7 @@ Dokumen ini merangkum urutan kerja untuk menjalankan jaringan Ethereum PoA denga
    Perintah pertama menyalin `genesis.json`, `rules.js`, password, keystore, dan masterseed ke struktur `artifacts/`. Password signer otomatis disalin ke `signer/<KAMPUS>/node.env`.
 3. Edit `config/ips.env` dengan IP publik terbaru setiap node. Jalankan ulang `prepare-artifacts.sh` jika nilai IP berubah.
 4. Sesuaikan `global.env` (salinan dari `global.env.example`):
-   - `BOOTNODE_ENODE` harus sudah berisi IP bootnode (di-update otomatis jika `PUBLIC_IP_UNIMED` terisi).
+   - `BOOTNODE_ENODE` harus sudah berisi IP bootnode (di-update otomatis jika `PUBLIC_IP_UT` terisi).
    - Set `ETHSTATS_*` dan kredensial monitoring agar konsisten dengan stack observasi.
 5. Gunakan `rsync` atau `scp` untuk menyalin subfolder `artifacts/signer/*` dan `artifacts/nonsigner/*` ke masing-masing VPS. Target direktori default berada di `/var/lib/poa/<node>/{geth,clef}` dan dapat diubah melalui `HOST_DATA_PATH` pada `signer/<KAMPUS>/node.env`.
 

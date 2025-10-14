@@ -52,7 +52,7 @@ update_global_env_bootnode() {
 }
 
 if [[ -n "${bootnode_template}" ]]; then
-  bootnode_ip="${PUBLIC_IP_UNIMED:-}"
+  bootnode_ip="${PUBLIC_IP_UT:-}"
   bootnode_value="${bootnode_template}"
   if [[ -n "${bootnode_ip}" ]]; then
     bootnode_value="${bootnode_value//nonsigner1/$bootnode_ip}"

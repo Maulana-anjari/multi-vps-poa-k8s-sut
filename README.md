@@ -1,6 +1,6 @@
 # Multi-VPS PoA on k3s
 
-Repository ini menyiapkan seluruh artefak dan manifest Kubernetes untuk menjalankan jaringan Ethereum PoA di atas cluster k3s lima VPS. Folder ini berdiri sendiri dan tidak lagi bergantung pada `multi-vps-poa` setelah artefak disalin.
+Repository ini menyiapkan seluruh artefak dan manifest Kubernetes untuk menjalankan jaringan Ethereum PoA di atas cluster k3s lima VPS.
 
 ## Struktur Utama
 - `config/` – salinan `genesis.json`, `rules.js`, `static-nodes.json`, password dan alamat akun signer/nonsigner.
