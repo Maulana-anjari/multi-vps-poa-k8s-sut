@@ -22,11 +22,12 @@ Dokumen ini merangkum urutan kerja untuk menjalankan jaringan Ethereum PoA denga
 - Label setiap worker dengan `kubectl label node <hostname> poa-host=vps-a` dan seterusnya mengikuti tabel di `docs/cluster-layout.md`.
 - Pastikan storage class `local-path` aktif (default k3s) atau sesuaikan `global.env` bila menggunakan storage class lain.
 
-## 3. Sinkronisasi ke VPS Caliper
-Jalankan command berikut ini di PWD: /home/maul/Documents/skripsi:
+## 3. Sinkronisasi ke VPS-Caliper
+Jika `git pull` di VPS-Caliper tidak menyertakan berkas yang di-ignore (mis. `global.env`, `config/ips.env`, artefak signer/nonsigner), gunakan skrip berikut dari mesin lokal:
 ```bash
-rsync -avz multi-vps-poa-k8s/ maul@<ip-vps-caliper>:/home/maul/multi-vps-poa-k8s
+rsync -avz multi-vps-poa-k8s/ user@<ip-vps-caliper>:/home/user/multi-vps-poa-k8s
 ```
+Skrip akan membuat direktori target jika belum ada, lalu menyalin `global.env`, `config/ips.env`, `config/addresses/`, `config/passwords/`, seluruh `artifacts/`, serta manifest hasil render. Jalankan ulang setiap kali artefak berubah sebelum men-deploy dari VPS-Caliper.
 
 ## 4. Deployment di Kubernetes
 1. Pastikan kubeconfig cluster aktif (`kubectl config current-context`).
@@ -38,24 +39,79 @@ rsync -avz multi-vps-poa-k8s/ maul@<ip-vps-caliper>:/home/maul/multi-vps-poa-k8s
    - Membuat namespace (`K8S_NAMESPACE` di `global.env`) bila belum ada.
    - Mengapply `ConfigMap` (`poa-shared-config`) dan secret password (`poa-geth-passwords`).
    - Mengapply StatefulSet + Service untuk seluruh signer dan nonsigner berdasarkan file `node.env`.
-4. Pantau status pod:
+4. Untuk hanya menyalakan node tertentu
+   a. Apply hanya manifest yang diperlukan
+   Pastikan ConfigMap dan secret di apply
+   ```bash
+   ./scripts/render-secrets.sh
+   ./scripts/render-manifests.sh
+   kubectl apply -f manifests/dist/shared/configmap.yaml
+   kubectl get configmap poa-shared-config -n default
+   kubectl apply -f manifests/shared/secrets.generated.yaml
+   kubectl get secret poa-geth-passwords -n default
+   ```
+   ```bash
+   kubectl apply -f manifests/dist/signer/ugm.yaml
+   kubectl apply -f manifests/dist/signer/itb.yaml
+   kubectl apply -f manifests/dist/signer/ui.yaml
+   kubectl apply -f manifests/dist/nonsigner/ut.yaml
+   ```
+
+   b. Scale statefulset target, sisanya biarkan 0
+   Jalankan ./scripts/deploy.sh --skip-artifacts, lalu matikan node yang tidak dibutuhkan:
+   ```bash
+   kubectl scale statefulset/poa-signer-itb -n default --replicas=0
+   kubectl scale statefulset/poa-nonsigner-unud -n default --replicas=0
+   ```
+5. Pantau status pod:
    ```bash
    kubectl get pods -n default
    kubectl logs -n default statefulset/poa-signer-ugm -c geth --tail=200
+   kubectl logs -n default statefulset/poa-signer-itb -c geth --tail=200
    kubectl logs -n default statefulset/poa-signer-ui -c geth --tail=200
-   kubectl logs poa-signer-ugm-0 -c clef -n default --previous --tail=200
+   kubectl logs -n default statefulset/poa-signer-ub -c geth --tail=200
+   kubectl logs -n default statefulset/poa-signer-its -c geth --tail=200
+
+   kubectl logs poa-signer-ugm-0 -c clef -n default --tail=200
+   kubectl logs poa-signer-itb-0 -c clef -n default --tail=200
+   kubectl logs poa-signer-ui-0 -c clef -n default --tail=200
+   kubectl logs poa-signer-ub-0 -c clef -n default --tail=200
+   kubectl logs poa-signer-its-0 -c clef -n default --tail=200
    ```
-5. Cek event pod untuk konfirmasi node dan volume tersambung:
+6. Cek event pod untuk konfirmasi node dan volume tersambung:
    ```bash
    kubectl describe pod poa-signer-ugm-0 -n default
+   kubectl describe pod poa-signer-itb-0 -n default
+   kubectl describe pod poa-signer-ui-0 -n default
+   kubectl describe pod poa-signer-ub-0 -n default
+   kubectl describe pod poa-signer-its-0 -n default
+
+   kubectl describe pod poa-nonsigner-ut-0 -n default
    ```
 
-## 5. Operasi Rutin
-- **Rollout ulang**: jalankan `kubectl rollout restart statefulset/poa-signer-ugm -n $K8S_NAMESPACE`.
+## 5. Sinkronisasi artefak ke VPS pekerja
+Setelah manifest terdeploy, salin data signer dan nonsigner ke hostPath masing-masing VPS. Cara paling mudah:
+```bash
+# sinkron seluruh signer & nonsigner
+./scripts/sync-host-artifacts.sh
+
+# atau target tertentu saja
+SUDO_PASSWORD='*******' ./scripts/sync-host-artifacts.sh UGM UNIMED
+```
+Skrip akan:
+1. Menghapus direktori lama (`/var/lib/poa/<node>/clef` dan/atau `/var/lib/poa/<node>/geth`).
+2. Membuat ulang direktori dengan kepemilikan user SSH (`REMOTE_USER`, default `maul`).
+3. Menyalin data dari `artifacts/signer/<NODE>/volumes/{clef,geth}/` atau `artifacts/nonsigner/<NODE>/volumes/geth/`.
+4. Mengembalikan kepemilikan ke root serta mengatur izin `masterseed.json` (`chmod 400`).
+
+Jika memilih manual, jalankan perintah `ssh` + `rsync` seperti pada `script setup k3s pos.txt`, lalu pastikan direktori akhir dimiliki root sebelum pod berjalan.
+
+## 6. Operasi Rutin
+- **Rollout ulang**: jalankan `kubectl rollout restart statefulset/poa-signer-ugm -n default`.
 - **Update IP**: ubah `config/ips.env`, jalankan `prepare-artifacts.sh` agar `node.env` ter-update, lalu `scripts/render-manifests.sh` dan `kubectl apply`.
 - **Penonaktifan**: gunakan `./scripts/destroy.sh` (`--keep-namespace` bila ingin mempertahankan namespace).
 
-## 6. Checklist Pasca Deploy
+## 7. Checklist Pasca Deploy
 - Semua pod `Ready`.
 - `kubectl get svc -n $K8S_NAMESPACE` menampilkan setiap signer/nonsigner dengan port HTTP/WS/p2p.
 - RPC signer dapat diakses (contoh: `kubectl port-forward service/poa-signer-ugm 8545:8545` lalu `eth_blockNumber`).

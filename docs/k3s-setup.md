@@ -52,8 +52,8 @@ Panduan ini meringkas langkah menyiapkan cluster k3s lima VPS mengikuti pola pad
 ```
 kubectl label node <hostname-vps-a> poa-host=vps-a --overwrite
 kubectl label node <hostname-vps-b> poa-host=vps-b --overwrite
-kubectl label node <hostname-vps-b> poa-host=vps-b --overwrite
-kubectl label node <hostname-vps-b> poa-host=vps-b --overwrite
+kubectl label node <hostname-vps-c> poa-host=vps-c --overwrite
+kubectl label node <hostname-vps-d> poa-host=vps-d --overwrite
 kubectl label node <hostname-vps-e> poa-host=vps-e --overwrite
 ```
 

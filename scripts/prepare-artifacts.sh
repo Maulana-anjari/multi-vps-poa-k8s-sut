@@ -62,7 +62,7 @@ if [[ -n "${bootnode_template}" ]]; then
 fi
 
 declare -a SIGNER_NAMES=(UGM ITB UI UB ITS)
-declare -a NONSIGNER_NAMES=(UT UNIMED UNUD Gundar UNDIP)
+declare -a NONSIGNER_NAMES=(UNIMED UNUD Gundar UT UNDIP)
 
 for idx in "${!SIGNER_NAMES[@]}"; do
   num=$((idx + 1))
