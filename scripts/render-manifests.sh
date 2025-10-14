@@ -151,6 +151,8 @@ EOF
 EOF
       fi
       cat <<EOF
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
       containers:
         - name: clef
           image: ${CLEF_IMAGE}
@@ -229,6 +231,10 @@ EOF
             - "${INFLUXDB_PASSWORD}"
             - --miner.gasprice
             - "1"
+            - --authrpc.addr
+            - 127.0.0.1
+            - --authrpc.port
+            - "${AUTHRPC_PORT:-8551}"
           ports:
             - name: http
               containerPort: ${HTTP_PORT:-8545}
@@ -294,10 +300,7 @@ EOF
 EOF
       fi
       cat <<EOF
-EOF
-      cat <<'EOF'
       tolerations: []
-    volumeClaimTemplates: []
 EOF
     } > "${output}"
     echo "Manifest signer ditulis ke ${output}"
@@ -391,6 +394,8 @@ EOF
 EOF
       fi
       cat <<EOF
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
       containers:
         - name: geth
           image: ${GETH_IMAGE}
@@ -446,6 +451,10 @@ EOF
             - "${INFLUXDB_PASSWORD}"
             - --miner.gasprice
             - "1"
+            - --authrpc.addr
+            - 127.0.0.1
+            - --authrpc.port
+            - "${AUTHRPC_PORT:-8551}"
           ports:
             - name: http
               containerPort: ${HTTP_PORT:-8545}
@@ -498,7 +507,6 @@ EOF
       fi
       cat <<'EOF'
       tolerations: []
-    volumeClaimTemplates: []
 EOF
     } > "${output}"
     echo "Manifest nonsigner ditulis ke ${output}"

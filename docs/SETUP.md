@@ -22,27 +22,40 @@ Dokumen ini merangkum urutan kerja untuk menjalankan jaringan Ethereum PoA denga
 - Label setiap worker dengan `kubectl label node <hostname> poa-host=vps-a` dan seterusnya mengikuti tabel di `docs/cluster-layout.md`.
 - Pastikan storage class `local-path` aktif (default k3s) atau sesuaikan `global.env` bila menggunakan storage class lain.
 
-## 3. Deployment di Kubernetes
+## 3. Sinkronisasi ke VPS Caliper
+Jalankan command berikut ini di PWD: /home/maul/Documents/skripsi:
+```bash
+rsync -avz multi-vps-poa-k8s/ maul@<ip-vps-caliper>:/home/maul/multi-vps-poa-k8s
+```
+
+## 4. Deployment di Kubernetes
 1. Pastikan kubeconfig cluster aktif (`kubectl config current-context`).
 2. Jalankan `./scripts/deploy.sh`. Opsi yang tersedia:
    - `--skip-artifacts` jika artefak sudah siap dan tidak ingin menyalin ulang.
    - `--skip-secrets` bila tidak ingin men-generate ulang secret password.
+   - `./scripts/deploy.sh --skip-artifacts --skip-secrets`
 3. Script akan:
    - Membuat namespace (`K8S_NAMESPACE` di `global.env`) bila belum ada.
    - Mengapply `ConfigMap` (`poa-shared-config`) dan secret password (`poa-geth-passwords`).
    - Mengapply StatefulSet + Service untuk seluruh signer dan nonsigner berdasarkan file `node.env`.
 4. Pantau status pod:
    ```bash
-   kubectl get pods -n $K8S_NAMESPACE
-   kubectl logs -n $K8S_NAMESPACE statefulset/poa-signer-ugm -c geth
+   kubectl get pods -n default
+   kubectl logs -n default statefulset/poa-signer-ugm -c geth --tail=200
+   kubectl logs -n default statefulset/poa-signer-ui -c geth --tail=200
+   kubectl logs poa-signer-ugm-0 -c clef -n default --previous --tail=200
+   ```
+5. Cek event pod untuk konfirmasi node dan volume tersambung:
+   ```bash
+   kubectl describe pod poa-signer-ugm-0 -n default
    ```
 
-## 4. Operasi Rutin
+## 5. Operasi Rutin
 - **Rollout ulang**: jalankan `kubectl rollout restart statefulset/poa-signer-ugm -n $K8S_NAMESPACE`.
 - **Update IP**: ubah `config/ips.env`, jalankan `prepare-artifacts.sh` agar `node.env` ter-update, lalu `scripts/render-manifests.sh` dan `kubectl apply`.
 - **Penonaktifan**: gunakan `./scripts/destroy.sh` (`--keep-namespace` bila ingin mempertahankan namespace).
 
-## 5. Checklist Pasca Deploy
+## 6. Checklist Pasca Deploy
 - Semua pod `Ready`.
 - `kubectl get svc -n $K8S_NAMESPACE` menampilkan setiap signer/nonsigner dengan port HTTP/WS/p2p.
 - RPC signer dapat diakses (contoh: `kubectl port-forward service/poa-signer-ugm 8545:8545` lalu `eth_blockNumber`).

@@ -150,6 +150,10 @@ for idx in "${!SIGNER_NAMES[@]}"; do
     printf 'HOST_DATA_PATH=%s\n' "${host_path_default}" >> "${node_env_file}"
   fi
 
+  if ! grep -q '^AUTHRPC_PORT=' "${node_env_file}" 2>/dev/null; then
+    printf 'AUTHRPC_PORT=%s\n' "8551" >> "${node_env_file}"
+  fi
+
   masterseed="${dest_clef}/masterseed.json"
   if [[ -f "${masterseed}" ]]; then
     chmod 400 "${masterseed}"
@@ -202,6 +206,10 @@ for idx in "${!NONSIGNER_NAMES[@]}"; do
   host_path_default="/var/lib/poa/${lower_name}"
   if ! grep -q '^HOST_DATA_PATH=' "${node_env_file}" 2>/dev/null; then
     printf 'HOST_DATA_PATH=%s\n' "${host_path_default}" >> "${node_env_file}"
+  fi
+
+  if ! grep -q '^AUTHRPC_PORT=' "${node_env_file}" 2>/dev/null; then
+    printf 'AUTHRPC_PORT=%s\n' "9551" >> "${node_env_file}"
   fi
 done
 
