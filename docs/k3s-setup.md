@@ -106,3 +106,27 @@ Tambahkan toleration/taint bila dibutuhkan (mis. memisahkan monitoring). Untuk P
   curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION="v1.34.x+k3s1" sh -
   ```
   Lakukan rolling upgrade worker satu per satu agar validator tidak mati bersamaan.
+
+## Allow firewall
+```bash
+sudo ufw allow 22/tcp
+sudo ufw allow 30303/tcp
+sudo ufw allow 30303/udp
+sudo ufw allow 31303/tcp
+sudo ufw allow 31303/udp
+sudo ufw allow 8545/tcp
+sudo ufw allow 8546/tcp
+sudo ufw allow 8557/tcp
+sudo ufw allow 8558/tcp
+sudo ufw allow 8559/tcp
+sudo ufw allow 8560/tcp
+sudo ufw allow 8561/tcp
+sudo ufw allow 8562/tcp
+sudo ufw allow 8551/tcp
+sudo ufw allow 9551/tcp
+sudo ufw allow 8085/tcp
+sudo ufw allow 8086/tcp
+sudo ufw allow 9090/tcp
+sudo ufw allow 9091/tcp
+sudo ufw reload
+```
