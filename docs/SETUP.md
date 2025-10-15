@@ -29,7 +29,24 @@ rsync -avz multi-vps-poa-k8s/ user@<ip-vps-caliper>:/home/user/multi-vps-poa-k8s
 ```
 Skrip akan membuat direktori target jika belum ada, lalu menyalin `global.env`, `config/ips.env`, `config/addresses/`, `config/passwords/`, seluruh `artifacts/`, serta manifest hasil render. Jalankan ulang setiap kali artefak berubah sebelum men-deploy dari VPS-Caliper.
 
-## 4. Deployment di Kubernetes
+## 4. Sinkronisasi artefak ke VPS pekerja
+Setelah manifest terdeploy, salin data signer dan nonsigner ke hostPath masing-masing VPS. Cara paling mudah:
+```bash
+# sinkron seluruh signer & nonsigner
+./scripts/sync-host-artifacts.sh
+
+# atau target tertentu saja
+SUDO_PASSWORD='*******' ./scripts/sync-host-artifacts.sh UGM ITB UI UNIMED
+```
+Skrip akan:
+1. Menghapus direktori lama (`/var/lib/poa/<node>/clef` dan/atau `/var/lib/poa/<node>/geth`).
+2. Membuat ulang direktori dengan kepemilikan user SSH (`REMOTE_USER`, default `maul`).
+3. Menyalin data dari `artifacts/signer/<NODE>/volumes/{clef,geth}/` atau `artifacts/nonsigner/<NODE>/volumes/geth/`.
+4. Mengembalikan kepemilikan ke root serta mengatur izin `masterseed.json` (`chmod 400`).
+
+Jika memilih manual, jalankan perintah `ssh` + `rsync` seperti pada `script setup k3s pos.txt`, lalu pastikan direktori akhir dimiliki root sebelum pod berjalan.
+
+## 5. Deployment di Kubernetes
 1. Pastikan kubeconfig cluster aktif (`kubectl config current-context`).
 2. Jalankan `./scripts/deploy.sh`. Opsi yang tersedia:
    - `--skip-artifacts` jika artefak sudah siap dan tidak ingin menyalin ulang.
@@ -44,17 +61,18 @@ Skrip akan membuat direktori target jika belum ada, lalu menyalin `global.env`, 
    Pastikan ConfigMap dan secret di apply
    ```bash
    ./scripts/render-secrets.sh
+   kubectl apply -f manifests/shared/secrets.generated.yaml
+   kubectl get secret poa-geth-passwords -n default
+   
    ./scripts/render-manifests.sh
    kubectl apply -f manifests/dist/shared/configmap.yaml
    kubectl get configmap poa-shared-config -n default
-   kubectl apply -f manifests/shared/secrets.generated.yaml
-   kubectl get secret poa-geth-passwords -n default
    ```
    ```bash
    kubectl apply -f manifests/dist/signer/ugm.yaml
    kubectl apply -f manifests/dist/signer/itb.yaml
    kubectl apply -f manifests/dist/signer/ui.yaml
-   kubectl apply -f manifests/dist/nonsigner/ut.yaml
+   kubectl apply -f manifests/dist/nonsigner/unimed.yaml
    ```
 
    b. Scale statefulset target, sisanya biarkan 0
@@ -66,11 +84,20 @@ Skrip akan membuat direktori target jika belum ada, lalu menyalin `global.env`, 
 5. Pantau status pod:
    ```bash
    kubectl get pods -n default
+   kubectl get pods -n default -o wide
    kubectl logs -n default statefulset/poa-signer-ugm -c geth --tail=200
-   kubectl logs -n default statefulset/poa-signer-itb -c geth --tail=200
+   kubectl logs -n default statefulset/poa-signer-ui -c geth --tail=200
    kubectl logs -n default statefulset/poa-signer-ui -c geth --tail=200
    kubectl logs -n default statefulset/poa-signer-ub -c geth --tail=200
    kubectl logs -n default statefulset/poa-signer-its -c geth --tail=200
+
+   kubectl logs -n default statefulset/poa-nonsigner-unimed -c geth --tail=200
+
+   # restart
+   kubectl rollout restart statefulset/poa-nonsigner-unimed -n default
+   kubectl rollout restart statefulset/poa-signer-ugm -n default
+   kubectl rollout restart statefulset/poa-signer-itb -n default
+   kubectl rollout restart statefulset/poa-signer-ui -n default
 
    kubectl logs poa-signer-ugm-0 -c clef -n default --tail=200
    kubectl logs poa-signer-itb-0 -c clef -n default --tail=200
@@ -86,30 +113,32 @@ Skrip akan membuat direktori target jika belum ada, lalu menyalin `global.env`, 
    kubectl describe pod poa-signer-ub-0 -n default
    kubectl describe pod poa-signer-its-0 -n default
 
+   kubectl describe pod poa-nonsigner-unimed-0 -n default
+   kubectl describe pod poa-nonsigner-unud-0 -n default
+   kubectl describe pod poa-nonsigner-gundar-0 -n default
    kubectl describe pod poa-nonsigner-ut-0 -n default
+   kubectl describe pod poa-nonsigner-undip-0 -n default
    ```
+7. Cek peers tiap pod
+   ```bash
+   kubectl exec -it poa-signer-ugm-0 -n default -c geth -- geth attach /root/.ethereum/geth.ipc
 
-## 5. Sinkronisasi artefak ke VPS pekerja
-Setelah manifest terdeploy, salin data signer dan nonsigner ke hostPath masing-masing VPS. Cara paling mudah:
-```bash
-# sinkron seluruh signer & nonsigner
-./scripts/sync-host-artifacts.sh
+   kubectl exec -it poa-signer-itb-0 -n default -c geth -- geth attach /root/.ethereum/geth.ipc
 
-# atau target tertentu saja
-SUDO_PASSWORD='*******' ./scripts/sync-host-artifacts.sh UGM UNIMED
-```
-Skrip akan:
-1. Menghapus direktori lama (`/var/lib/poa/<node>/clef` dan/atau `/var/lib/poa/<node>/geth`).
-2. Membuat ulang direktori dengan kepemilikan user SSH (`REMOTE_USER`, default `maul`).
-3. Menyalin data dari `artifacts/signer/<NODE>/volumes/{clef,geth}/` atau `artifacts/nonsigner/<NODE>/volumes/geth/`.
-4. Mengembalikan kepemilikan ke root serta mengatur izin `masterseed.json` (`chmod 400`).
+   kubectl exec -it poa-signer-ui-0 -n default -c geth -- geth attach /root/.ethereum/geth.ipc
 
-Jika memilih manual, jalankan perintah `ssh` + `rsync` seperti pada `script setup k3s pos.txt`, lalu pastikan direktori akhir dimiliki root sebelum pod berjalan.
+   kubectl exec -it poa-nonsigner-unimed-0 -n default -c geth -- geth attach /root/.ethereum/geth.ipc
+
+   # Di console yang muncul:
+
+   net.peerCount
+   admin.peers
+   ```
 
 ## 6. Operasi Rutin
 - **Rollout ulang**: jalankan `kubectl rollout restart statefulset/poa-signer-ugm -n default`.
 - **Update IP**: ubah `config/ips.env`, jalankan `prepare-artifacts.sh` agar `node.env` ter-update, lalu `scripts/render-manifests.sh` dan `kubectl apply`.
-- **Penonaktifan**: gunakan `./scripts/destroy.sh` (`--keep-namespace` bila ingin mempertahankan namespace).
+- **Penonaktifan**: gunakan `./scripts/destroy.sh` `--keep-namespace` bila ingin mempertahankan namespace).
 
 ## 7. Checklist Pasca Deploy
 - Semua pod `Ready`.

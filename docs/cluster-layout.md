@@ -9,10 +9,10 @@ Gunakan tabel berikut untuk memastikan setiap pod PoA ditempatkan pada VPS yang 
 | Signer | `poa-signer-ui`  | `vps-c` | VPS-C | `/var/lib/poa/ui` |
 | Signer | `poa-signer-ub`  | `vps-d` | VPS-D | `/var/lib/poa/ub` |
 | Signer | `poa-signer-its` | `vps-e` | VPS-E | `/var/lib/poa/its` |
-| Nonsigner | `poa-nonsigner-unimed` | `vps-a` | VPS-A | `/var/lib/poa/unimed` |
+| Nonsigner | `poa-nonsigner-ut`     | `vps-a` | VPS-A | `/var/lib/poa/ut` |
 | Nonsigner | `poa-nonsigner-unud`   | `vps-b` | VPS-B | `/var/lib/poa/unud` |
 | Nonsigner | `poa-nonsigner-gundar` | `vps-c` | VPS-C | `/var/lib/poa/gundar` |
-| Nonsigner | `poa-nonsigner-ut`     | `vps-d` | VPS-D | `/var/lib/poa/ut` |
+| Nonsigner | `poa-nonsigner-unimed` | `vps-d` | VPS-D | `/var/lib/poa/unimed` |
 | Nonsigner | `poa-nonsigner-undip`  | `vps-e` | VPS-E | `/var/lib/poa/undip` |
 
 ## Catatan
