@@ -219,6 +219,10 @@ EOF
             - --ethstats
             - "${ETHSTATS_ID}:${ETHSTATS_WS_SECRET}@${ETHSTATS_ENDPOINT}"
             - --metrics
+            - --metrics.addr
+            - 0.0.0.0
+            - --metrics.port
+            - "6060"
             - --metrics.expensive
             - --metrics.influxdb
             - --metrics.influxdb.endpoint
@@ -241,6 +245,9 @@ EOF
               protocol: TCP
             - name: ws
               containerPort: ${WS_PORT:-8546}
+              protocol: TCP
+            - name: metrics
+              containerPort: 6060
               protocol: TCP
             - name: p2p-tcp
               containerPort: ${P2P_PORT:-30303}
@@ -439,6 +446,10 @@ EOF
             - --ethstats
             - "${ETHSTATS_ID}:${ETHSTATS_WS_SECRET}@${ETHSTATS_ENDPOINT}"
             - --metrics
+            - --metrics.addr
+            - 0.0.0.0
+            - --metrics.port
+            - "6060"
             - --metrics.expensive
             - --metrics.influxdb
             - --metrics.influxdb.endpoint
@@ -461,6 +472,9 @@ EOF
               protocol: TCP
             - name: ws
               containerPort: ${WS_PORT:-8546}
+              protocol: TCP
+            - name: metrics
+              containerPort: 6060
               protocol: TCP
             - name: p2p-tcp
               containerPort: ${P2P_PORT:-30303}
