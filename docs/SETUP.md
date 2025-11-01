@@ -15,7 +15,6 @@ Dokumen ini merangkum urutan kerja untuk menjalankan jaringan Ethereum PoA denga
 4. Sesuaikan `global.env` (salinan dari `global.env.example`):
    - `BOOTNODE_ENODE` harus sudah berisi IP bootnode (di-update otomatis jika `PUBLIC_IP_UT` terisi).
    - Set `ETHSTATS_*` dan kredensial monitoring agar konsisten dengan stack observasi.
-5. Gunakan `rsync` atau `scp` untuk menyalin subfolder `artifacts/signer/*` dan `artifacts/nonsigner/*` ke masing-masing VPS. Target direktori default berada di `/var/lib/poa/<node>/{geth,clef}` dan dapat diubah melalui `HOST_DATA_PATH` pada `signer/<KAMPUS>/node.env`.
 
 ## 2. Menyiapkan Cluster k3s (Ringkasan)
 - Bentuk cluster k3s menggunakan panduan di `docs/k3s-setup.md`.
@@ -26,6 +25,7 @@ Dokumen ini merangkum urutan kerja untuk menjalankan jaringan Ethereum PoA denga
 Jika `git pull` di VPS-Caliper tidak menyertakan berkas yang di-ignore (mis. `global.env`, `config/ips.env`, artefak signer/nonsigner), gunakan skrip berikut dari mesin lokal:
 ```bash
 rsync -avz multi-vps-poa-k8s/ user@<ip-vps-caliper>:/home/user/multi-vps-poa-k8s
+rsync -avz multi-vps-poa-k8s/ maul@77.237.244.170:/home/maul/multi-vps-poa-k8s
 ```
 Skrip akan membuat direktori target jika belum ada, lalu menyalin `global.env`, `config/ips.env`, `config/addresses/`, `config/passwords/`, seluruh `artifacts/`, serta manifest hasil render. Jalankan ulang setiap kali artefak berubah sebelum men-deploy dari VPS-Caliper.
 
@@ -78,26 +78,51 @@ Jika memilih manual, jalankan perintah `ssh` + `rsync` seperti pada `script setu
    b. Scale statefulset target, sisanya biarkan 0
    Jalankan ./scripts/deploy.sh --skip-artifacts, lalu matikan node yang tidak dibutuhkan:
    ```bash
+   kubectl scale statefulset/poa-signer-ugm -n default --replicas=0
    kubectl scale statefulset/poa-signer-itb -n default --replicas=0
+   kubectl scale statefulset/poa-signer-ui -n default --replicas=0
+   kubectl scale statefulset/poa-nonsigner-unimed -n default --replicas=0
+
+   kubectl scale statefulset/poa-signer-ub -n default --replicas=0
+   kubectl scale statefulset/poa-signer-its -n default --replicas=0
+   kubectl scale statefulset/poa-nonsigner-ut -n default --replicas=0
    kubectl scale statefulset/poa-nonsigner-unud -n default --replicas=0
+   kubectl scale statefulset/poa-nonsigner-undip -n default --replicas=0
+   kubectl scale statefulset/poa-nonsigner-gundar -n default --replicas=0
+
+   # hidupkan lagi
+   kubectl scale statefulset/poa-nonsigner-ut -n default --replicas=1
+   kubectl scale statefulset/poa-nonsigner-unud -n default --replicas=1
+
+   kubectl scale statefulset/poa-signer-ub -n default --replicas=1
+   kubectl scale statefulset/poa-signer-its -n default --replicas=1
+   kubectl scale statefulset/poa-nonsigner-undip -n default --replicas=1
+   kubectl scale statefulset/poa-nonsigner-gundar -n default --replicas=1
+
    ```
 5. Pantau status pod:
    ```bash
    kubectl get pods -n default
    kubectl get pods -n default -o wide
    kubectl logs -n default statefulset/poa-signer-ugm -c geth --tail=200
-   kubectl logs -n default statefulset/poa-signer-ui -c geth --tail=200
+   kubectl logs -n default statefulset/poa-signer-itb -c geth --tail=200
    kubectl logs -n default statefulset/poa-signer-ui -c geth --tail=200
    kubectl logs -n default statefulset/poa-signer-ub -c geth --tail=200
    kubectl logs -n default statefulset/poa-signer-its -c geth --tail=200
 
    kubectl logs -n default statefulset/poa-nonsigner-unimed -c geth --tail=200
+   kubectl logs -n default statefulset/poa-nonsigner-ut -c geth --tail=200
+   kubectl logs -n default statefulset/poa-nonsigner-unud -c geth --tail=200
+   kubectl logs -n default statefulset/poa-nonsigner-undip -c geth --tail=200
+   kubectl logs -n default statefulset/poa-nonsigner-gundar -c geth --tail=200
 
    # restart
    kubectl rollout restart statefulset/poa-nonsigner-unimed -n default
    kubectl rollout restart statefulset/poa-signer-ugm -n default
    kubectl rollout restart statefulset/poa-signer-itb -n default
    kubectl rollout restart statefulset/poa-signer-ui -n default
+   kubectl rollout restart statefulset/poa-signer-ub -n default
+   kubectl rollout restart statefulset/poa-signer-its -n default
 
    kubectl logs poa-signer-ugm-0 -c clef -n default --tail=200
    kubectl logs poa-signer-itb-0 -c clef -n default --tail=200
