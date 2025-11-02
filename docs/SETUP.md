@@ -117,12 +117,16 @@ Jika memilih manual, jalankan perintah `ssh` + `rsync` seperti pada `script setu
    kubectl logs -n default statefulset/poa-nonsigner-gundar -c geth --tail=200
 
    # restart
-   kubectl rollout restart statefulset/poa-nonsigner-unimed -n default
    kubectl rollout restart statefulset/poa-signer-ugm -n default
    kubectl rollout restart statefulset/poa-signer-itb -n default
    kubectl rollout restart statefulset/poa-signer-ui -n default
    kubectl rollout restart statefulset/poa-signer-ub -n default
    kubectl rollout restart statefulset/poa-signer-its -n default
+   kubectl rollout restart statefulset/poa-nonsigner-unimed -n default
+   kubectl rollout restart statefulset/poa-nonsigner-ut -n default
+   kubectl rollout restart statefulset/poa-nonsigner-unud -n default
+   kubectl rollout restart statefulset/poa-nonsigner-undip -n default
+   kubectl rollout restart statefulset/poa-nonsigner-gundar -n default
 
    kubectl logs poa-signer-ugm-0 -c clef -n default --tail=200
    kubectl logs poa-signer-itb-0 -c clef -n default --tail=200

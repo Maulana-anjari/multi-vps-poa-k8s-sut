@@ -449,7 +449,7 @@ EOF
             - --metrics.addr
             - 0.0.0.0
             - --metrics.port
-            - "6060"
+            - "6160"
             - --metrics.expensive
             - --metrics.influxdb
             - --metrics.influxdb.endpoint
@@ -474,7 +474,7 @@ EOF
               containerPort: ${WS_PORT:-8546}
               protocol: TCP
             - name: metrics
-              containerPort: 6060
+              containerPort: 6160
               protocol: TCP
             - name: p2p-tcp
               containerPort: ${P2P_PORT:-30303}
