@@ -175,3 +175,155 @@ Jika memilih manual, jalankan perintah `ssh` + `rsync` seperti pada `script setu
 - RPC signer dapat diakses (contoh: `kubectl port-forward service/poa-signer-ugm 8545:8545` lalu `eth_blockNumber`).
 - Ethstats menampilkan seluruh node dengan status online.
 - Monitoring (InfluxDB/Prometheus) menerima metrik baru.
+
+## Chaos Mesh Fault Injection
+
+Gunakan Chaos Mesh agar skenario PoA identik dengan PoS Kurtosis.
+
+- `.env` Caliper untuk PoA:
+  
+  ```bash
+  FAULT_INJECT_K8S_TARGET_KIND="pod"
+  FAULT_INJECT_K8S_CONTEXT="default"
+  FAULT_INJECT_K8S_NAMESPACE="default"
+  FAULT_INJECT_K8S_TARGET_NAME="poa-nonsigner-unimed-0"   # RPC UNIMED
+  ```
+
+- NetworkChaos template (delay 300 ms, jitter 50 ms, loss 3 %):
+  
+  ```yaml
+  apiVersion: chaos-mesh.org/v1alpha1
+  kind: NetworkChaos
+  metadata:
+    name: poa-rpc-delay
+  spec:
+    action: netem
+    mode: all
+    selector:
+      namespaces:
+        - default
+      pods:
+        default:
+          - poa-nonsigner-unimed-0
+    delay:
+      latency: "300ms"
+      jitter: "50ms"
+      correlation: "100"
+    loss:
+      loss: "3"
+      correlation: "100"
+    duration: "10m"
+  ```
+
+  Terapkan sebelum trial Caliper dan hapus manifest untuk fase recovery. Ganti nama pod sesuai target jika hanya sebagian node yang dihidupkan.
+  Salinan default tersedia di `ethereum-caliper-workspace/chaos/poa-rpc-delay.yaml`.
+
+Export ke csv untuk Semua skenario inti (loop):
+
+```bash
+PROM="http://77.237.244.170:9102"
+START="2025-11-16T11:43:10Z"
+END="2025-11-16T13:43:11Z"
+RUN_LABEL="POS_5V-5NV_Default_Trial_1"
+
+for s in throughput-fixed-load throughput-step prewarm-mint-certificate prewarm-lam \
+         read-intensive worker-scale-w1 worker-scale-w3 worker-scale-w5 \
+         certificate-lifecycle stability-soak fault-injection-k8s; do
+  ./scripts/prometheus-to-csv.sh \
+    --prom "$PROM" \
+    --scenario "$s" \
+    --start "$START" \
+    --end "$END" \
+    --step 60s \
+    --run-label "$RUN_LABEL"
+done
+```
+
+Khusus fault-injection-k8s: pre/during/post per variant dan trial
+Skrip mendukung --fault-window dengan label variant/trial; ini akan mencari marker on/off dan mengekspor tiga interval.
+for v in default consensus access; do for t in 1 2 3; do ./scripts/prometheus-to-csv.sh --prom "$PROM" --scenario fault-injection-k8s --fault-window --variant "$v" --trial "$t" --lookback "240 hours" --pre 300 --post 300 --step 15s --run-label "fault-$v-t$t-$(date +%Y%m%d-%H%M)"; done; done
+
+
+Ekstrak waktu start/finish fault-injection dari logs/running.log
+
+Konteks:
+Folder sumber: ethereum-caliper-workspace/logs/<RUN_LABEL>/running.log
+Baris target memiliki pola: “Scenario fault-injection-k8s (variant VAR, trial N) timing: started YYYY-MM-DD HH:MM:SS, finished YYYY-MM-DD HH:MM:SS, duration …”
+
+Tugas:
+Scan semua running.log di bawah logs/.
+Ambil run_label dari nama folder induk (mis. logs/PoA_5S-5NS_20251110-051000 → run_label=PoA_5S-5NS_20251110-051000).
+Ekstrak variant, trial, waktu started/finished UTC.
+Jika ada logs/<RUN_LABEL>/fault-injection.log, coba juga ekstrak waktu “ON/OFF” yang lebih presisi:
+ON: baris yang memuat “disrupting …” (catat timestampnya).
+OFF: baris pemulihan seperti “recovered”/“recovery” (catat timestampnya).
+Hasilkan keluaran utama berupa tabel CSV dengan kolom:
+run_label, variant, trial, start_wib, finish_wib, start_utc, finish_utc, on_utc?, off_utc?
+Sertakan ringkasan:
+Jumlah per variant dan trial, daftar kombinasi variant/trial yang tidak ditemukan, serta flags jika hanya punya window start/finish tanpa marker on/off.
+Laporkan anomali:
+Timestamp kosong/format invalid, started > finished, atau entry ganda untuk variant/trial yang sama dalam satu run.
+Output yang diharapkan:
+Tabel CSV (disajikan inline) + ringkasan poin.
+Contoh satu baris CSV:
+PoA_5S-5NS_20251110-051000,default,1,2025-11-10 12:18:28 WIB,2025-11-10 12:34:43 WIB,2025-11-10T05:18:28Z,2025-11-10T05:34:43Z,2025-11-10T05:20:28Z,2025-11-10T05:32:28Z
+
+
+Verifikasi ekspor “POS_5V-5NV_Trial_4” di folder csv/
+Konteks:
+Folder sumber: ethereum-caliper-workspace/csv
+File yang dihasilkan skrip: <RUN_LABEL>_<scenario>_tps_finished.csv, _success_ratio.csv, _latency_p50.csv, latency_p95.csv, dan <RUN_LABEL><scenario>_summary.csv
+Daftar skenario yang diharapkan:
+throughput-fixed-load, throughput-step, prewarm-mint-certificate, prewarm-lam, read-intensive, worker-scale-w1, worker-scale-w3, worker-scale-w5, certificate-lifecycle, stability-soak, fault-injection-k8s
+Tugas:
+Kerjakan verifikasi untuk batch tersebut.
+Untuk tiap skenario:
+Pastikan keempat file metrik ada dan tidak kosong (≥2 baris).
+Validasi format CSV: 2 kolom “timestamp,value”, timestamp monoton naik, value numerik (tidak NaN/empty).
+Konsistensi rentang waktu:
+Nilai timestamp awal dan akhir kira-kira selaras antar keempat file (selisih awal/akhir kecil).
+Langkah waktu (“step”) konsisten atau hampir konsisten (mis. 60s untuk all‑history).
+Korelasi metrik:
+success_ratio berada di [0,1].
+tps_finished tidak semua nol sepanjang window (kecuali memang tidak ada aktivitas).
+Periksa summary CSV:
+Ada entri mean/median/p95 untuk tiap metrik; tidak kosong.
+Hasilkan ringkasan:
+Daftar skenario OK, dan daftar skenario dengan masalah (missing file, file kosong, timestamp tidak monoton, NaN).
+Tunjukkan 1–2 sampel baris awal per file yang bermasalah.
+Rekomendasi perbaikan jika ada masalah:
+Cek label scenario di Prometheus, persempit START/END ke waktu run yang ada data, atau sesuaikan step.
+Output yang diharapkan:
+Ringkasan status per skenario (OK/Warning/Error) dalam daftar bullet.
+Tabel kecil “anomaly report” (skenario → masalah).
+Opsional: saran tindakan per masalah yang ditemukan.
+
+
+Pertimbangkan menyalakan resource monitor Caliper atau telemetry node supaya bisa mengaitkan lonjakan latensi 30s dengan penggunaan CPU/mem atau log prysm/geth selama fault berlangsung.
+
+Verifikasi ekspor “POS_5V-5NV_Default_Trial_1” di folder csv/ hiraukan sub folder history, historytest2, dan historytest3
+saya menjalankan: dengan waktu sesuai scenario di file 
+PROM="http://77.237.244.170:9102"
+START="2025-11-17T15:18:16Z"
+END="2025-11-17T15:21:48Z"
+RUN_LABEL="POS_5V-5NV_Default_Trial_4_Test1"
+
+./scripts/prometheus-to-csv.sh \
+  --prom "$PROM" \
+  --scenario "throughput-fixed-load" \
+  --start "$START" \
+  --end "$END" \
+  --step 60s \
+  --run-label "$RUN_LABEL"
+
+
+./scripts/export_from_log.sh \
+  --log logs/POS_5V-5NV_Trial_4/running.log \
+  --prom http://77.237.244.170:9102 \
+  --run-label POS_5V-5NV_Trial_4_cobakedua_final \
+  --step 60s \
+  --align-window \
+  --align-buffer 120 \
+  --auto-step \
+  --verbose \
+  --tz-offset +00:00
